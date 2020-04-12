@@ -1,0 +1,3 @@
+[submodule "Gigabyte-exploit"]
+	path = Gigabyte-exploit
+	url = https://github.com/fdiskyou/CVE-2018-19320
