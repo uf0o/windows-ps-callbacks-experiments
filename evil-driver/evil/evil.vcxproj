@@ -150,7 +150,6 @@
       <AdditionalOptions>/integritycheck %(AdditionalOptions)</AdditionalOptions>
     </Link>
     <PostBuildEvent>
-      <Command>copy $(TargetPath) c:\users\rui\desktop\kd-transfer\</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
