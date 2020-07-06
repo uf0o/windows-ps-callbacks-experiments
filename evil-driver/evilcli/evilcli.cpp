@@ -17,6 +17,7 @@ void Usage()
 	printf("  -z\t\tZero out Process Notify Callback's Array (Cowboy Mode).\n");
 	printf("  -d <index>\tDelete Specific Process Notify Callback (Red Team Mode).\n");
 	printf("  -p <index>\tPatch Specific Process Notify Callback (Threat Actor Mode).\n");
+	printf("  -r <index>\tRollback to the original Process Notify Callback (Thoughtful Ninja Mode).\n");
 }
 
 void DisplayInfo(BYTE* buffer, DWORD size) {
